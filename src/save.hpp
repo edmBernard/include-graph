@@ -104,14 +104,14 @@ std::string to_path(
     std::optional<Fill> fill, std::optional<Strokes> strockes) {
   std::string output;
   const  std::string s_fill = fill ? fmt::format("fill:rgb({},{},{})", fill->r, fill->g, fill->b) : "fill:none";
-  const std::string s_strockes = strockes ? fmt::format("stroke:rgb({},{},{});stroke-width:{};stroke-opacity:0.5;stroke-linecap:butt;stroke-linejoin:round", strockes->r, strockes->g, strockes->b, strockes->width) : "";
+  const std::string s_strockes = strockes ? fmt::format("stroke:rgb({},{},{});stroke-width:{};stroke-opacity:0.1;stroke-linecap:butt;stroke-linejoin:round", strockes->r, strockes->g, strockes->b, strockes->width) : "";
   for (auto &bz : lines) {
     output += fmt::format("<path style='{};{}' d='{}'></path>\n ", s_fill, s_strockes, details::to_path(bz));
   }
   return output;
 }
 
-template <typename Geometry>
+template <typename Geometry, typename Point>
 [[nodiscard]] bool saveTiling(const std::string &filename,
                               const std::vector<Geometry> &lines,
                               const std::unordered_map<std::string, Point> &labels,
@@ -125,15 +125,15 @@ template <typename Geometry>
 
   out << "<svg xmlns='http://www.w3.org/2000/svg' "
       << fmt::format("height='{size}' width='{size}' viewBox='0 0 {size} {size}'>\n", fmt::arg("size", canvasSize))
-      << fmt::format("<rect height='100%' width='100%' fill='rgb({},{},{})'/>\n", 0, 0, 0)
+      << fmt::format("<rect height='100%' width='100%' fill='rgb({},{},{})'/>\n", 255, 255, 255)
       << "<g id='surface1'>\n";
 
-  out << to_path(lines, {}, Strokes{0xff0000, 1});
+  out << to_path(lines, {}, Strokes{0x0044C2, 1});
 
-  const RGB textColor(0xffffff);
+  const RGB textColor(0x000000);
   const  std::string s_fill = fmt::format("fill:rgb({},{},{})", textColor.r, textColor.g, textColor.b);
   for (auto& [k, v] : labels) {
-    out << fmt::format("<text style='{}' x='{}' y='{}' dy='0.25em'>{}</text>\n", s_fill, v.x, v.y, k);
+    out << fmt::format("<text style='{}' font-size='0.5em' dy='0.25em' transform='translate({},{}) rotate({})'>{}</text>\n", s_fill, v.x, v.y, v.angle, k);
   }
   out << "</g>\n</svg>\n";
   return true;

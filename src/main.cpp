@@ -20,6 +20,7 @@
 #include <fstream>
 #include <regex>
 #include <set>
+#include <map>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -36,6 +37,15 @@ bool isValidExtension(const std::string& ext) {
   return false;
 }
 
+struct PointWithAngle : public Point {
+  PointWithAngle() {}
+  PointWithAngle(float x, float y, float angle)
+      : Point(x, y), angle(angle) {}
+  PointWithAngle(Point pt, float angle)
+      : Point(pt), angle(angle) {}
+  float angle = 0;
+};
+
 int main(int argc, char *argv[]) try {
 
   spdlog::cfg::load_env_levels();
@@ -50,7 +60,7 @@ int main(int argc, char *argv[]) try {
     ("h,help", "Print help")
     ("sources", "Source folder", cxxopts::value<std::string>()->default_value("."))
     ("exclude", "Exclude pattern", cxxopts::value<std::string>()->default_value(""))
-    ("ignore-std", "Ignore include without extension", cxxopts::value<bool>())
+    ("ignore-external", "Ignore include outside of the source folder", cxxopts::value<bool>())
     ("o,output", "Output filename (.svg)", cxxopts::value<std::string>())
     ;
   // clang-format on
@@ -76,7 +86,9 @@ int main(int argc, char *argv[]) try {
   }
 
   const std::string excludePattern = clo["exclude"].as<std::string>();
-  const bool ignoreStandard = clo.count("ignore-std");
+  const std::regex regexExclude(excludePattern);
+
+  const bool ignoreExternal = clo.count("ignore-external");
 
   // =================================================================================================
   // Code
@@ -85,8 +97,11 @@ int main(int argc, char *argv[]) try {
   // =================================================================================================
   // Parsing
   std::unordered_multimap<std::string, std::string> dependencyGraph;
+  std::unordered_map<std::string, std::vector<std::string>> headerByFolder;
   std::set<std::string> uniqueHeader;
 
+  std::unordered_set<std::string> allFilesAbsolute;
+  std::unordered_set<std::string> allFilesStem;
   for (auto& p : fs::recursive_directory_iterator(inputFolder)) {
 
     const fs::path filename = p.path();
@@ -96,11 +111,18 @@ int main(int argc, char *argv[]) try {
     if (!isValidExtension(filename.extension().string())) {
       continue;
     }
-    std::regex regexExclude(excludePattern);
     std::string absolutePath = std::filesystem::absolute(filename).string();
     if (std::regex_match(absolutePath, regexExclude)) {
       continue;
     }
+    allFilesAbsolute.insert(absolutePath);
+    allFilesStem.insert(filename.stem().string());
+    headerByFolder[filename.parent_path().string()].push_back(filename.stem().string());
+
+  }
+
+  for (auto& p : allFilesAbsolute) {
+    const fs::path filename = fs::path(p);
 
     std::ifstream infile(filename);
     if (!infile.is_open()) {
@@ -114,38 +136,51 @@ int main(int argc, char *argv[]) try {
     while (getline(infile, line)) {
 
       if (std::regex_match(line, matchInclude, regexInclude)) {
-        const std::string includeFilename = fs::path(matchInclude[1].str()).filename().string();
+        const std::string includeFilename = fs::path(matchInclude[1].str()).stem().string();
         const std::string includeExtension = fs::path(matchInclude[1].str()).extension().string();
 
-        if (ignoreStandard && includeExtension.empty()) {
+        if (ignoreExternal && !allFilesStem.count(includeFilename)) {
           continue;
         }
         if (std::regex_match(includeFilename, regexExclude)) {
           continue;
         }
-
-        dependencyGraph.insert({filename.filename().string(), includeFilename});
-        uniqueHeader.insert(filename.filename().string());
+        dependencyGraph.insert({filename.stem().string(), includeFilename});
+        uniqueHeader.insert(filename.stem().string());
         uniqueHeader.insert(includeFilename);
       }
     }
 
   }
-
+  for (auto& elem : uniqueHeader) {
+    fmt::print("{}\n", elem);
+  }
   // =================================================================================================
   // Rendering
   const int canvasSize = 2000;
   const float radius = canvasSize / 4.f;
   const Point center = canvasSize / 2.f * Point(1, 1);
 
-  int nbPoint = uniqueHeader.size();
+  constexpr int spacing = 2;
+  int nbPoint = uniqueHeader.size() + spacing * headerByFolder.size() + 1;
 
-  std::unordered_map<std::string, Point> classesPoints;
+  std::unordered_map<std::string, PointWithAngle> classesPoints;
   int index = 0;
-  for (auto& elem : uniqueHeader) {
+  auto addLabels = [&](const std::string& elem) {
     const float phi = 2.f * index * pi / nbPoint;
-    classesPoints[elem] = radius * Point(cos(phi), sin(phi)) + center;
+    classesPoints[elem] = PointWithAngle(radius * Point(cos(phi), sin(phi)) + center, index * 360.f / nbPoint);
     index++;
+  };
+  for (auto& [k, v] : headerByFolder) {
+    for (auto& elem : v) {
+      addLabels(elem);
+    }
+    index += spacing; // increment for spacing between folder
+  }
+  for (auto& elem : uniqueHeader) {
+    if (!allFilesStem.count(elem)) {
+      addLabels(elem);
+    }
   }
 
   std::random_device rd;
@@ -153,8 +188,9 @@ int main(int argc, char *argv[]) try {
   std::uniform_int_distribution<> distrib(0, 99);
   std::vector<Bezier> chords;
   for (auto [k, v] : dependencyGraph) {
-    const Point tangentBegin = classesPoints[k] + 0.5 * (center - classesPoints[k]);
-    const Point tangentEnd = classesPoints[v] + 0.5 * (center - classesPoints[v]);
+    const float distance = std::sqrt(norm(classesPoints[k] - classesPoints[v]));
+    const Point tangentBegin = classesPoints[k] + (center - classesPoints[k]) * distance / (2 * radius);
+    const Point tangentEnd = classesPoints[v] + (center - classesPoints[v]) * distance / (2 * radius);
     chords.emplace_back(classesPoints[k], tangentBegin, tangentEnd, classesPoints[v]);
   }
 
@@ -164,6 +200,7 @@ int main(int argc, char *argv[]) try {
   }
 
   std::chrono::duration<double, std::milli> elapsed_temp = std::chrono::high_resolution_clock::now() - start_temp;
+  fmt::print("Number of curve {} \n", uniqueHeader.size());
   fmt::print("Execution time: {:.2f} ms \n", elapsed_temp.count());
 
   return EXIT_SUCCESS;
