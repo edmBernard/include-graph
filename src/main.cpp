@@ -18,15 +18,16 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
-#include <unordered_map>
-#include <vector>
 #include <regex>
 #include <set>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
 
 namespace fs = std::filesystem;
 
 bool isValidExtension(const std::string& ext) {
-  std::vector<std::string> validExtention = {".cpp", ".hpp"};
+  std::vector<std::string> validExtention = {".cpp", ".hpp", ".h"};
   for (auto v : validExtention) {
     if (v == ext) {
       return true;
@@ -48,6 +49,7 @@ int main(int argc, char *argv[]) try {
   options.add_options()
     ("h,help", "Print help")
     ("sources", "Source folder", cxxopts::value<std::string>()->default_value("."))
+    ("exclude", "Exclude pattern", cxxopts::value<std::string>()->default_value(""))
     ("o,output", "Output filename (.svg)", cxxopts::value<std::string>())
     ;
   // clang-format on
@@ -90,6 +92,13 @@ int main(int argc, char *argv[]) try {
     if (!isValidExtension(filename.extension().string())) {
       continue;
     }
+    std::regex regexExclude(excludePattern);
+    std::smatch matchExclude;
+    std::string absolutePath = std::filesystem::absolute(filename).string();
+    if (std::regex_match(absolutePath, matchExclude, regexExclude)) {
+      continue;
+    }
+
 
     std::ifstream infile(filename);
     if (!infile.is_open()) {
@@ -103,10 +112,11 @@ int main(int argc, char *argv[]) try {
     while (getline(infile, line)) {
 
       if (std::regex_match(line, matchInclude, regexInclude)) {
-        fmt::print("{}\n", line);
-        dependencyGraph.insert({filename.stem().string(), matchInclude[1].str()});
+        const std::string includeFilename = fs::path(matchInclude[1].str()).filename().string();
+
+        dependencyGraph.insert({filename.stem().string(), includeFilename});
         uniqueHeader.insert(filename.stem().string());
-        uniqueHeader.insert(matchInclude[1].str());
+        uniqueHeader.insert(includeFilename);
       }
     }
 
@@ -133,7 +143,6 @@ int main(int argc, char *argv[]) try {
   std::uniform_int_distribution<> distrib(0, 99);
   std::vector<Bezier> chords;
   for (auto [k, v] : dependencyGraph) {
-    fmt::print("key={} value={}\n", k, v);
     const Point tangentBegin = classesPoints[k] + 0.5 * (center - classesPoints[k]);
     const Point tangentEnd = classesPoints[v] + 0.5 * (center - classesPoints[v]);
     chords.emplace_back(classesPoints[k], tangentBegin, tangentEnd, classesPoints[v]);
