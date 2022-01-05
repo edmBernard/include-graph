@@ -152,9 +152,7 @@ int main(int argc, char *argv[]) try {
     }
 
   }
-  for (auto& elem : uniqueHeader) {
-    fmt::print("{}\n", elem);
-  }
+
   // =================================================================================================
   // Rendering
   const int canvasSize = 2000;
@@ -168,7 +166,7 @@ int main(int argc, char *argv[]) try {
   int index = 0;
   auto addLabels = [&](const std::string& elem) {
     const float phi = 2.f * index * pi / nbPoint;
-    classesPoints[elem] = PointWithAngle(radius * Point(cos(phi), sin(phi)) + center, index * 360.f / nbPoint);
+    classesPoints[elem] = PointWithAngle(radius * Point(cos(phi), sin(phi)) + center, phi);
     index++;
   };
   for (auto& [k, v] : headerByFolder) {
@@ -183,9 +181,6 @@ int main(int argc, char *argv[]) try {
     }
   }
 
-  std::random_device rd;
-  std::mt19937 gen(rd());
-  std::uniform_int_distribution<> distrib(0, 99);
   std::vector<Bezier> chords;
   for (auto [k, v] : dependencyGraph) {
     const float distance = norm(classesPoints[k] - classesPoints[v]);
@@ -200,7 +195,7 @@ int main(int argc, char *argv[]) try {
   }
 
   std::chrono::duration<double, std::milli> elapsed_temp = std::chrono::high_resolution_clock::now() - start_temp;
-  fmt::print("Number of curve {} \n", uniqueHeader.size());
+  fmt::print("Number of curve: {} \n", uniqueHeader.size());
   fmt::print("Execution time: {:.2f} ms \n", elapsed_temp.count());
 
   return EXIT_SUCCESS;

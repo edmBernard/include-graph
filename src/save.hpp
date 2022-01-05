@@ -102,21 +102,20 @@ struct Strokes {
 std::string to_path(
     const std::vector<Bezier> &lines,
     RGB firstColor, RGB lastColor, float width) {
-  std::string output;
-  const  std::string gradient = fmt::format(
+
+  std::string output = fmt::format(
     "<defs>\n"
     "<linearGradient id='FirstGradient' >\n"
     "<stop offset='0%' style='stop-color:rgb({},{},{});'/>\n"
     "<stop offset='100%' style='stop-color:rgb({},{},{});'/>\n"
     "</linearGradient>\n"
     "</defs>\n", firstColor.r, firstColor.g, firstColor.b, lastColor.r, lastColor.g, lastColor.b);
-  output += gradient;
 
-  const std::string s_strockes = fmt::format("stroke:url(#FirstGradient);stroke-width:{};stroke-opacity:1;stroke-linecap:butt;stroke-linejoin:round", width);
+  const std::string s_strockes = fmt::format("stroke:url(#FirstGradient);stroke-width:{};stroke-opacity:0.1;stroke-linecap:butt;stroke-linejoin:round", width);
   for (auto &bz : lines) {
     // gradient is fixed, to applied on line in function of the orientation,
     // we rotate the line horizontaly apply the gradient and rotate the line back to it's position
-    float angle = std::acos(scalar(Point(1, 0), (bz.points[0] - bz.points[3]) / norm(bz.points[0] - bz.points[3])));
+    const float angle = std::acos(scalar(Point(1, 0), (bz.points[0] - bz.points[3]) / norm(bz.points[0] - bz.points[3])));
     output += fmt::format("<path style='{};fill:none' transform='rotate({})' d='{}'></path>\n ", s_strockes, angle * 180.f / pi, details::to_path(rotate(bz, - angle)));
   }
   return output;
@@ -136,16 +135,16 @@ template <typename Geometry, typename Point>
 
   out << "<svg xmlns='http://www.w3.org/2000/svg' "
       << fmt::format("height='{size}' width='{size}' viewBox='0 0 {size} {size}'>\n", fmt::arg("size", canvasSize))
-      << fmt::format("<rect height='100%' width='100%' fill='rgb({},{},{})'/>\n", 255, 255, 255)
+      << fmt::format("<rect height='100%' width='100%' fill='rgb({},{},{})'/>\n", 0, 0, 0)
       << "<g id='surface1'>\n"
       ;
 
-  out << to_path(lines, 0x0044C2, 0xEB0041, 10);
+  out << to_path(lines, 0x0044C2, 0xEB0041, 1);
 
-  const RGB textColor(0x000000);
-  const  std::string s_fill = fmt::format("fill:rgb({},{},{})", textColor.r, textColor.g, textColor.b);
+  const RGB textColor(0xffffff);
+  const std::string s_fill = fmt::format("fill:rgb({},{},{})", textColor.r, textColor.g, textColor.b);
   for (auto& [k, v] : labels) {
-    out << fmt::format("<text style='{}' font-size='0.5em' dy='0.25em' transform='translate({},{}) rotate({})'>{}</text>\n", s_fill, v.x, v.y, v.angle, k);
+    out << fmt::format("<text style='{}' font-size='0.5em' dy='0.25em' transform='translate({},{}) rotate({})'>{}</text>\n", s_fill, v.x, v.y, v.angle * 180.f / pi, k);
   }
   out << "</g>\n</svg>\n";
   return true;
