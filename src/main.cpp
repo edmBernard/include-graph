@@ -50,6 +50,7 @@ int main(int argc, char *argv[]) try {
     ("h,help", "Print help")
     ("sources", "Source folder", cxxopts::value<std::string>()->default_value("."))
     ("exclude", "Exclude pattern", cxxopts::value<std::string>()->default_value(""))
+    ("ignore-std", "Ignore include without extension", cxxopts::value<bool>())
     ("o,output", "Output filename (.svg)", cxxopts::value<std::string>())
     ;
   // clang-format on
@@ -75,6 +76,7 @@ int main(int argc, char *argv[]) try {
   }
 
   const std::string excludePattern = clo["exclude"].as<std::string>();
+  const bool ignoreStandard = clo.count("ignore-std");
 
   // =================================================================================================
   // Code
@@ -85,7 +87,6 @@ int main(int argc, char *argv[]) try {
   std::unordered_multimap<std::string, std::string> dependencyGraph;
   std::set<std::string> uniqueHeader;
 
-  std::unordered_set<std::string> allFilePath;
   for (auto& p : fs::recursive_directory_iterator(inputFolder)) {
 
     const fs::path filename = p.path();
@@ -96,16 +97,10 @@ int main(int argc, char *argv[]) try {
       continue;
     }
     std::regex regexExclude(excludePattern);
-    std::smatch matchExclude;
     std::string absolutePath = std::filesystem::absolute(filename).string();
-    if (std::regex_match(absolutePath, matchExclude, regexExclude)) {
+    if (std::regex_match(absolutePath, regexExclude)) {
       continue;
     }
-
-    allFilePath.insert(absolutePath);
-  }
-  for (auto& p : allFilePath) {
-    const fs::path filename = p;
 
     std::ifstream infile(filename);
     if (!infile.is_open()) {
@@ -120,9 +115,17 @@ int main(int argc, char *argv[]) try {
 
       if (std::regex_match(line, matchInclude, regexInclude)) {
         const std::string includeFilename = fs::path(matchInclude[1].str()).filename().string();
+        const std::string includeExtension = fs::path(matchInclude[1].str()).extension().string();
 
-        dependencyGraph.insert({filename.stem().string(), includeFilename});
-        uniqueHeader.insert(filename.stem().string());
+        if (ignoreStandard && includeExtension.empty()) {
+          continue;
+        }
+        if (std::regex_match(includeFilename, regexExclude)) {
+          continue;
+        }
+
+        dependencyGraph.insert({filename.filename().string(), includeFilename});
+        uniqueHeader.insert(filename.filename().string());
         uniqueHeader.insert(includeFilename);
       }
     }
