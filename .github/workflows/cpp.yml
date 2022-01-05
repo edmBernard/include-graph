@@ -47,8 +47,6 @@ jobs:
       run: cmake . -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="vcpkg/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=${{ matrix.config.triplet }} -DCMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE=Artifact
     - name: build
       run: cmake --build . --config Release
-    - name: run
-      run: ./Artifact/include-graph
     - uses: actions/upload-artifact@v1
       with:
         name: include-graph-${{ matrix.config.triplet }}
