@@ -188,7 +188,7 @@ int main(int argc, char *argv[]) try {
   std::uniform_int_distribution<> distrib(0, 99);
   std::vector<Bezier> chords;
   for (auto [k, v] : dependencyGraph) {
-    const float distance = std::sqrt(norm(classesPoints[k] - classesPoints[v]));
+    const float distance = norm(classesPoints[k] - classesPoints[v]);
     const Point tangentBegin = classesPoints[k] + (center - classesPoints[k]) * distance / (2 * radius);
     const Point tangentEnd = classesPoints[v] + (center - classesPoints[v]) * distance / (2 * radius);
     chords.emplace_back(classesPoints[k], tangentBegin, tangentEnd, classesPoints[v]);

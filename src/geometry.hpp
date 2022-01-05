@@ -52,7 +52,7 @@ float scalar(const Point &pt1, const Point &pt2) {
   return pt1.x * pt2.x + pt1.y * pt2.y;
 }
 float norm(const Point &pt1) {
-  return pt1.x * pt1.x + pt1.y * pt1.y;
+  return std::sqrt(pt1.x * pt1.x + pt1.y * pt1.y);
 }
 bool operator==(const Point &lhs, const Point &rhs) {
   return norm(lhs - rhs) < epsilon;
@@ -61,6 +61,9 @@ bool operator<(const Point &lhs, const Point &rhs) {
   if (abs(lhs.x - rhs.x) < epsilon)
     return lhs.y < rhs.y;
   return lhs.x < rhs.x;
+}
+Point rotate(const Point &lhs, float angle) {
+  return { lhs.x * std::cos(angle) - lhs.y * std::sin(angle), lhs.x * std::sin(angle) + lhs.y * std::cos(angle)};
 }
 
 std::string to_string(const Point &pt) {
@@ -128,6 +131,15 @@ struct Bezier {
       : points{begin, beginTangent, endTangent, end} {
   }
 };
+
+Bezier rotate(const Bezier &lhs, float angle) {
+  return {
+    rotate(lhs.points[0], angle),
+    rotate(lhs.points[1], angle),
+    rotate(lhs.points[2], angle),
+    rotate(lhs.points[3], angle)
+    };
+}
 
 std::string to_string(const Bezier &bz) {
   return fmt::format("{}, {}, {}, {}",

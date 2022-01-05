@@ -101,12 +101,23 @@ struct Strokes {
 
 std::string to_path(
     const std::vector<Bezier> &lines,
-    std::optional<Fill> fill, std::optional<Strokes> strockes) {
+    RGB firstColor, RGB lastColor, float width) {
   std::string output;
-  const  std::string s_fill = fill ? fmt::format("fill:rgb({},{},{})", fill->r, fill->g, fill->b) : "fill:none";
-  const std::string s_strockes = strockes ? fmt::format("stroke:rgb({},{},{});stroke-width:{};stroke-opacity:0.1;stroke-linecap:butt;stroke-linejoin:round", strockes->r, strockes->g, strockes->b, strockes->width) : "";
+  const  std::string gradient = fmt::format(
+    "<defs>\n"
+    "<linearGradient id='FirstGradient' >\n"
+    "<stop offset='0%' style='stop-color:rgb({},{},{});'/>\n"
+    "<stop offset='100%' style='stop-color:rgb({},{},{});'/>\n"
+    "</linearGradient>\n"
+    "</defs>\n", firstColor.r, firstColor.g, firstColor.b, lastColor.r, lastColor.g, lastColor.b);
+  output += gradient;
+
+  const std::string s_strockes = fmt::format("stroke:url(#FirstGradient);stroke-width:{};stroke-opacity:1;stroke-linecap:butt;stroke-linejoin:round", width);
   for (auto &bz : lines) {
-    output += fmt::format("<path style='{};{}' d='{}'></path>\n ", s_fill, s_strockes, details::to_path(bz));
+    // gradient is fixed, to applied on line in function of the orientation,
+    // we rotate the line horizontaly apply the gradient and rotate the line back to it's position
+    float angle = std::acos(scalar(Point(1, 0), (bz.points[0] - bz.points[3]) / norm(bz.points[0] - bz.points[3])));
+    output += fmt::format("<path style='{};fill:none' transform='rotate({})' d='{}'></path>\n ", s_strockes, angle * 180.f / pi, details::to_path(rotate(bz, - angle)));
   }
   return output;
 }
@@ -126,9 +137,10 @@ template <typename Geometry, typename Point>
   out << "<svg xmlns='http://www.w3.org/2000/svg' "
       << fmt::format("height='{size}' width='{size}' viewBox='0 0 {size} {size}'>\n", fmt::arg("size", canvasSize))
       << fmt::format("<rect height='100%' width='100%' fill='rgb({},{},{})'/>\n", 255, 255, 255)
-      << "<g id='surface1'>\n";
+      << "<g id='surface1'>\n"
+      ;
 
-  out << to_path(lines, {}, Strokes{0x0044C2, 1});
+  out << to_path(lines, 0x0044C2, 0xEB0041, 10);
 
   const RGB textColor(0x000000);
   const  std::string s_fill = fmt::format("fill:rgb({},{},{})", textColor.r, textColor.g, textColor.b);
