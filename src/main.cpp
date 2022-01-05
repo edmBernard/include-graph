@@ -74,6 +74,8 @@ int main(int argc, char *argv[]) try {
     return EXIT_FAILURE;
   }
 
+  const std::string excludePattern = clo["exclude"].as<std::string>();
+
   // =================================================================================================
   // Code
   auto start_temp = std::chrono::high_resolution_clock::now();
@@ -83,6 +85,7 @@ int main(int argc, char *argv[]) try {
   std::unordered_multimap<std::string, std::string> dependencyGraph;
   std::set<std::string> uniqueHeader;
 
+  std::unordered_set<std::string> allFilePath;
   for (auto& p : fs::recursive_directory_iterator(inputFolder)) {
 
     const fs::path filename = p.path();
@@ -99,6 +102,10 @@ int main(int argc, char *argv[]) try {
       continue;
     }
 
+    allFilePath.insert(absolutePath);
+  }
+  for (auto& p : allFilePath) {
+    const fs::path filename = p;
 
     std::ifstream infile(filename);
     if (!infile.is_open()) {
@@ -148,7 +155,7 @@ int main(int argc, char *argv[]) try {
     chords.emplace_back(classesPoints[k], tangentBegin, tangentEnd, classesPoints[v]);
   }
 
-  if (!svg::saveTiling(filename, chords, canvasSize)) {
+  if (!svg::saveTiling(filename, chords, classesPoints, canvasSize)) {
     spdlog::error("Failed to save in file");
     return EXIT_FAILURE;
   }

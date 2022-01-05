@@ -101,23 +101,20 @@ struct Strokes {
 
 std::string to_path(
     const std::vector<Bezier> &lines,
-    std::optional<Fill> fill, std::optional<Strokes> strockes,
-    std::function<bool(Bezier)> func = [](const Bezier &) { return true; }) {
+    std::optional<Fill> fill, std::optional<Strokes> strockes) {
   std::string output;
+  const  std::string s_fill = fill ? fmt::format("fill:rgb({},{},{})", fill->r, fill->g, fill->b) : "fill:none";
+  const std::string s_strockes = strockes ? fmt::format("stroke:rgb({},{},{});stroke-width:{};stroke-opacity:0.5;stroke-linecap:butt;stroke-linejoin:round", strockes->r, strockes->g, strockes->b, strockes->width) : "";
   for (auto &bz : lines) {
-    if (func(bz)) {
-      std::string s_fill = fill ? fmt::format("fill:rgb({},{},{})", fill->r, fill->g, fill->b) : "fill:none";
-      std::string s_strockes = strockes ? fmt::format("stroke:rgb({},{},{});stroke-width:{};stroke-opacity:0.5;stroke-linecap:butt;stroke-linejoin:round", strockes->r, strockes->g, strockes->b, strockes->width) : "";
-      output += fmt::format("<path style='{};{}' d='{}'></path>\n ", s_fill, s_strockes, details::to_path(bz));
-    }
+    output += fmt::format("<path style='{};{}' d='{}'></path>\n ", s_fill, s_strockes, details::to_path(bz));
   }
-
   return output;
 }
 
 template <typename Geometry>
 [[nodiscard]] bool saveTiling(const std::string &filename,
                               const std::vector<Geometry> &lines,
+                              const std::unordered_map<std::string, Point> &labels,
                               int canvasSize) {
 
   std::ofstream out(filename);
@@ -133,6 +130,11 @@ template <typename Geometry>
 
   out << to_path(lines, {}, Strokes{0xff0000, 1});
 
+  const RGB textColor(0xffffff);
+  const  std::string s_fill = fmt::format("fill:rgb({},{},{})", textColor.r, textColor.g, textColor.b);
+  for (auto& [k, v] : labels) {
+    out << fmt::format("<text style='{}' x='{}' y='{}' dy='0.25em'>{}</text>\n", s_fill, v.x, v.y, k);
+  }
   out << "</g>\n</svg>\n";
   return true;
 }
