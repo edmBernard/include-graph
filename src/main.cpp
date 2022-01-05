@@ -134,7 +134,9 @@ int main(int argc, char *argv[]) try {
   std::vector<Bezier> chords;
   for (auto [k, v] : dependencyGraph) {
     fmt::print("key={} value={}\n", k, v);
-    chords.emplace_back(classesPoints[k], center, center, classesPoints[v]);
+    const Point tangentBegin = classesPoints[k] + 0.5 * (center - classesPoints[k]);
+    const Point tangentEnd = classesPoints[v] + 0.5 * (center - classesPoints[v]);
+    chords.emplace_back(classesPoints[k], tangentBegin, tangentEnd, classesPoints[v]);
   }
 
   if (!svg::saveTiling(filename, chords, canvasSize)) {

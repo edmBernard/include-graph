@@ -34,8 +34,8 @@ std::string to_path(const Bezier &bz) {
   return fmt::format("M {} {} C {} {}, {} {}, {} {}",
                      bz.points[0].x, bz.points[0].y,
                      bz.points[1].x, bz.points[1].y,
-                     bz.points[3].x, bz.points[3].y,
-                     bz.points[2].x, bz.points[2].y);
+                     bz.points[2].x, bz.points[2].y,
+                     bz.points[3].x, bz.points[3].y);
 }
 
 } // namespace details
