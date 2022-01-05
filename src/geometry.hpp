@@ -24,9 +24,10 @@ constexpr float epsilon = 0.1f; // use for the comparison between Point
 // Point
 
 struct Point {
-  float x;
-  float y;
+  float x = 0;
+  float y = 0;
 
+  Point() {}
   Point(float x, float y)
       : x(x), y(y) {
   }

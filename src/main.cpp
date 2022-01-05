@@ -16,9 +16,24 @@
 #include <spdlog/spdlog.h>
 
 #include <chrono>
-#include <fstream>
-#include <vector>
 #include <filesystem>
+#include <fstream>
+#include <unordered_map>
+#include <vector>
+#include <regex>
+#include <set>
+
+namespace fs = std::filesystem;
+
+bool isValidExtension(const std::string& ext) {
+  std::vector<std::string> validExtention = {".cpp", ".hpp"};
+  for (auto v : validExtention) {
+    if (v == ext) {
+      return true;
+    }
+  }
+  return false;
+}
 
 int main(int argc, char *argv[]) try {
 
@@ -59,29 +74,67 @@ int main(int argc, char *argv[]) try {
 
   // =================================================================================================
   // Code
-
   auto start_temp = std::chrono::high_resolution_clock::now();
 
+  // =================================================================================================
+  // Parsing
+  std::unordered_multimap<std::string, std::string> dependencyGraph;
+  std::set<std::string> uniqueHeader;
+
+  for (auto& p : fs::recursive_directory_iterator(inputFolder)) {
+
+    const fs::path filename = p.path();
+    if (!fs::is_regular_file(filename)) {
+      continue;
+    }
+    if (!isValidExtension(filename.extension().string())) {
+      continue;
+    }
+
+    std::ifstream infile(filename);
+    if (!infile.is_open()) {
+      throw std::runtime_error(fmt::format("File Not Found : {}", filename.string()));
+    }
+
+    std::string line;
+    std::regex regexInclude("#include +[\"<](.*)[\">]");
+    std::smatch matchInclude;
+
+    while (getline(infile, line)) {
+
+      if (std::regex_match(line, matchInclude, regexInclude)) {
+        fmt::print("{}\n", line);
+        dependencyGraph.insert({filename.stem().string(), matchInclude[1].str()});
+        uniqueHeader.insert(filename.stem().string());
+        uniqueHeader.insert(matchInclude[1].str());
+      }
+    }
+
+  }
+
+  // =================================================================================================
+  // Rendering
   const int canvasSize = 2000;
   const float radius = canvasSize / 4.f;
   const Point center = canvasSize / 2.f * Point(1, 1);
 
-  constexpr int nbPoint = 100;
+  int nbPoint = uniqueHeader.size();
 
-  std::vector<Point> classesPoints;
-  for (int i = 0; i < nbPoint; ++i) {
-    const float phi = 2.f * i * pi / nbPoint;
-    classesPoints.emplace_back(radius * Point(cos(phi), sin(phi)) + center);
+  std::unordered_map<std::string, Point> classesPoints;
+  int index = 0;
+  for (auto& elem : uniqueHeader) {
+    const float phi = 2.f * index * pi / nbPoint;
+    classesPoints[elem] = radius * Point(cos(phi), sin(phi)) + center;
+    index++;
   }
 
   std::random_device rd;
   std::mt19937 gen(rd());
   std::uniform_int_distribution<> distrib(0, 99);
   std::vector<Bezier> chords;
-  for (int i = 0; i < nbPoint; ++i) {
-    for (int j = 0; j < distrib(gen); ++j) {
-      chords.emplace_back(classesPoints[i], center, center, classesPoints[distrib(gen)]);
-    }
+  for (auto [k, v] : dependencyGraph) {
+    fmt::print("key={} value={}\n", k, v);
+    chords.emplace_back(classesPoints[k], center, center, classesPoints[v]);
   }
 
   if (!svg::saveTiling(filename, chords, canvasSize)) {
