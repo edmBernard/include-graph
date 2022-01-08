@@ -18,16 +18,16 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <map>
 #include <regex>
 #include <set>
-#include <map>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
 namespace fs = std::filesystem;
 
-bool isValidExtension(const std::string& ext) {
+bool isValidExtension(const std::string &ext) {
   std::vector<std::string> validExtention = {".cpp", ".hpp", ".h"};
   for (auto v : validExtention) {
     if (v == ext) {
@@ -38,12 +38,21 @@ bool isValidExtension(const std::string& ext) {
 }
 
 struct PointWithAngle : public Point {
-  PointWithAngle() {}
+  PointWithAngle() {
+  }
   PointWithAngle(float x, float y, float angle)
-      : Point(x, y), angle(angle) {}
+      : Point(x, y), angle(angle) {
+  }
   PointWithAngle(Point pt, float angle)
-      : Point(pt), angle(angle) {}
+      : Point(pt), angle(angle) {
+  }
   float angle = 0;
+};
+
+enum class PlotMode {
+  Chords,
+  Box,
+  Grid
 };
 
 int main(int argc, char *argv[]) try {
@@ -62,6 +71,7 @@ int main(int argc, char *argv[]) try {
     ("exclude", "Exclude pattern", cxxopts::value<std::string>()->default_value(""))
     ("ignore-external", "Ignore include outside of the source folder", cxxopts::value<bool>())
     ("o,output", "Output filename (.svg)", cxxopts::value<std::string>())
+    ("mode", "Plot mode (chords, box, grid)", cxxopts::value<std::string>()->default_value("chords"))
     ;
   // clang-format on
   options.parse_positional({"output"});
@@ -90,6 +100,17 @@ int main(int argc, char *argv[]) try {
 
   const bool ignoreExternal = clo.count("ignore-external");
 
+  const PlotMode plotMode = [&] {
+    const std::string mode = clo["mode"].as<std::string>();
+    if (mode == "chords")
+      return PlotMode::Chords;
+    if (mode == "box")
+      return PlotMode::Box;
+    if (mode == "grid")
+      return PlotMode::Grid;
+    throw std::runtime_error("Unkown mode should only be : chords, box, grid");
+  }();
+
   // =================================================================================================
   // Code
   auto start_temp = std::chrono::high_resolution_clock::now();
@@ -102,7 +123,7 @@ int main(int argc, char *argv[]) try {
 
   std::unordered_set<std::string> allFilesAbsolute;
   std::unordered_set<std::string> allFilesStem;
-  for (auto& p : fs::recursive_directory_iterator(inputFolder)) {
+  for (auto &p : fs::recursive_directory_iterator(inputFolder)) {
 
     const fs::path filename = p.path();
     if (!fs::is_regular_file(filename)) {
@@ -118,10 +139,9 @@ int main(int argc, char *argv[]) try {
     allFilesAbsolute.insert(absolutePath);
     allFilesStem.insert(filename.stem().string());
     headerByFolder[filename.parent_path().string()].push_back(filename.stem().string());
-
   }
 
-  for (auto& p : allFilesAbsolute) {
+  for (auto &p : allFilesAbsolute) {
     const fs::path filename = fs::path(p);
 
     std::ifstream infile(filename);
@@ -150,7 +170,6 @@ int main(int argc, char *argv[]) try {
         uniqueHeader.insert(includeFilename);
       }
     }
-
   }
 
   // =================================================================================================
@@ -164,18 +183,24 @@ int main(int argc, char *argv[]) try {
 
   std::unordered_map<std::string, PointWithAngle> classesPoints;
   int index = 0;
-  auto addLabels = [&](const std::string& elem) {
-    const float phi = 2.f * index * pi / nbPoint;
-    classesPoints[elem] = PointWithAngle(radius * Point(cos(phi), sin(phi)) + center, phi);
-    index++;
+  auto addLabels = [&](const std::string &elem) {
+    switch (plotMode) {
+    case PlotMode::Chords: {
+      const float phi = 2.f * index * pi / nbPoint;
+      classesPoints[elem] = PointWithAngle(radius * Point(cos(phi), sin(phi)) + center, phi);
+      index++;
+    } break;
+    default:
+      throw std::runtime_error("Not Implemented mode");
+    }
   };
-  for (auto& [k, v] : headerByFolder) {
-    for (auto& elem : v) {
+  for (auto &[k, v] : headerByFolder) {
+    for (auto &elem : v) {
       addLabels(elem);
     }
     index += spacing; // increment for spacing between folder
   }
-  for (auto& elem : uniqueHeader) {
+  for (auto &elem : uniqueHeader) {
     if (!allFilesStem.count(elem)) {
       addLabels(elem);
     }
@@ -199,11 +224,9 @@ int main(int argc, char *argv[]) try {
   fmt::print("Execution time: {:.2f} ms \n", elapsed_temp.count());
 
   return EXIT_SUCCESS;
-
 } catch (const cxxopts::OptionException &e) {
   spdlog::error("Parsing options : {}", e.what());
   return EXIT_FAILURE;
-
 } catch (const std::exception &e) {
   spdlog::error("{}", e.what());
   return EXIT_FAILURE;
