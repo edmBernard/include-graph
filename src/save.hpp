@@ -115,7 +115,9 @@ std::string to_path(
   for (auto &bz : lines) {
     // gradient is fixed, to applied on line in function of the orientation,
     // we rotate the line horizontaly apply the gradient and rotate the line back to it's position
-    const float angle = std::acos(scalar(Point(1, 0), (bz.points[0] - bz.points[3]) / norm(bz.points[0] - bz.points[3])));
+    const float cosPhi = scalar(Point(1, 0), (bz.points[0] - bz.points[3]) / norm(bz.points[0] - bz.points[3]));
+    const float sinPhi = scalar(Point(0, 1), (bz.points[0] - bz.points[3]) / norm(bz.points[0] - bz.points[3]));
+    const float angle = sinPhi > 0 ? std::acos(cosPhi) : 2 * pi - std::acos(cosPhi);
     output += fmt::format("<path style='{};fill:none' transform='rotate({})' d='{}'></path>\n ", s_strockes, angle * 180.f / pi, details::to_path(rotate(bz, - angle)));
   }
   return output;
