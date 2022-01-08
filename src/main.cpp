@@ -199,14 +199,14 @@ int main(int argc, char *argv[]) try {
       int& counter = uniqueHeader[elem];
       if (counter == 0) {
         // I consider filename is unique but it's not the case so I have to ignore duplicate
-      addLabels(elem);
+        addLabels(elem);
         counter++;
       }
     }
     index += spacing; // increment for spacing between folder
   }
   for (auto &[elem, counter] : uniqueHeader) {
-    if (!allFilesStem.count(elem)) {
+    if (counter == 0) {
       addLabels(elem);
     }
   }
