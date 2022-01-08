@@ -119,7 +119,7 @@ int main(int argc, char *argv[]) try {
   // Parsing
   std::unordered_multimap<std::string, std::string> dependencyGraph;
   std::unordered_map<std::string, std::vector<std::string>> headerByFolder;
-  std::set<std::string> uniqueHeader;
+  std::unordered_map<std::string, int> uniqueHeader;
 
   std::unordered_set<std::string> allFilesAbsolute;
   std::unordered_set<std::string> allFilesStem;
@@ -166,8 +166,8 @@ int main(int argc, char *argv[]) try {
           continue;
         }
         dependencyGraph.insert({filename.stem().string(), includeFilename});
-        uniqueHeader.insert(filename.stem().string());
-        uniqueHeader.insert(includeFilename);
+        uniqueHeader.insert({filename.stem().string(), 0});
+        uniqueHeader.insert({includeFilename, 0});
       }
     }
   }
@@ -196,11 +196,16 @@ int main(int argc, char *argv[]) try {
   };
   for (auto &[k, v] : headerByFolder) {
     for (auto &elem : v) {
+      int& counter = uniqueHeader[elem];
+      if (counter == 0) {
+        // I consider filename is unique but it's not the case so I have to ignore duplicate
       addLabels(elem);
+        counter++;
+      }
     }
     index += spacing; // increment for spacing between folder
   }
-  for (auto &elem : uniqueHeader) {
+  for (auto &[elem, counter] : uniqueHeader) {
     if (!allFilesStem.count(elem)) {
       addLabels(elem);
     }
